@@ -1,0 +1,161 @@
+package com.example.recycleritems.readOTP
+
+import android.Manifest
+import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.example.recycleritems.R
+
+class ReadOtpActivity : AppCompatActivity() {
+
+    private val permissionReadSms = 101
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_read_otp)
+
+        setupPermissions()
+    }
+
+    override fun onResume() {
+
+        super.onResume()
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            LocalBroadcastManager.getInstance(this).registerReceiver(
+                receiver,
+                IntentFilter("otp")
+            )
+
+            Log.d("Fetch OTP", "registered")
+        }
+    }
+
+    override fun onPause() {
+
+        super.onPause()
+
+        Log.d("Fetch OTP", "unregistered")
+
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver)
+    }
+
+
+    private fun setupPermissions() {
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_SMS + Manifest.permission.RECEIVE_SMS
+            )
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS),
+                permissionReadSms
+            )
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>, grantResults: IntArray
+    ) {
+        when (requestCode) {
+
+            permissionReadSms -> {
+
+                if (grantResults.isNotEmpty() &&
+
+                    grantResults[0] == PackageManager.PERMISSION_DENIED &&
+
+                    grantResults[1] == PackageManager.PERMISSION_DENIED
+                ) {
+
+                    val showRationaleRead =
+
+                        shouldShowRequestPermissionRationale(permissions[0])
+
+                    val showRationaleReceive =
+
+                        shouldShowRequestPermissionRationale(permissions[1])
+
+                    if (!showRationaleRead || !showRationaleReceive) {
+
+                        handleDoNotAskAgain()
+                    }
+
+                } else if ((grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+
+                    onResume()
+                }
+            }
+        }
+    }
+
+    private fun handleDoNotAskAgain() {
+
+        AlertDialog.Builder(this)
+
+            .setMessage(
+                "We will send you 6 digit OTP. You can allow this permission to auto read OTP"
+            )
+            .setPositiveButton(
+                "Allow"
+            ) { dialog, _ ->
+                // navigate to settings
+
+                val intents = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+
+                val uri: Uri = Uri.fromParts("package", packageName, null)
+
+                intents.data = uri
+
+                startActivity(intents)
+
+                dialog.dismiss()
+            }
+            .setNegativeButton(
+                "Fill Manually"
+            ) { dialog, _ ->
+
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+
+            .show()
+
+    }
+
+    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
+
+        override fun onReceive(context: Context?, intent: Intent) {
+
+            if (intent.action.equals("otp", ignoreCase = true)) {
+
+                val message: String? = intent.getStringExtra("message")
+
+                Log.d("Fetch OTP", message.toString())
+            }
+        }
+    }
+}
